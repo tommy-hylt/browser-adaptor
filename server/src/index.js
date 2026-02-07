@@ -59,6 +59,19 @@ app.get('/tabs', async (req, res) => {
   }
 });
 
+app.post('/tabs/activate', async (req, res) => {
+  try {
+    const { tabId } = req.body ?? {};
+    if (typeof tabId !== 'number') {
+      return res.status(400).json({ ok: false, error: 'Missing tabId (number)' });
+    }
+    const result = await callExt({ type: 'tabs_activate', tabId });
+    res.json({ ok: true, result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e?.message ?? e) });
+  }
+});
+
 app.get('/bookmarks', async (req, res) => {
   try {
     const result = await callExt({ type: 'bookmarks_tree' });

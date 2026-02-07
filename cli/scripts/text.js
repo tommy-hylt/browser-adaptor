@@ -1,9 +1,39 @@
 #!/usr/bin/env node
 import { cdp } from '../lib/bridge.js';
 
-// Usage: text.js [selector]
-// Prints innerText of the selected element (defaults to document.body).
-const selector = process.argv[2] ?? null;
+// Usage:
+//   text.js
+//   text.js <selector>
+//   text.js --backendNodeId <id>
+
+const args = process.argv.slice(2);
+
+if (args[0] === '--backendNodeId') {
+  const backendNodeId = Number(args[1]);
+  if (!Number.isFinite(backendNodeId)) {
+    console.error('Usage: text.js --backendNodeId <id>');
+    process.exit(1);
+  }
+
+  const pushed = await cdp('DOM.pushNodesByBackendIdsToFrontend', { backendNodeIds: [backendNodeId] });
+  const nodeId = pushed?.nodeIds?.[0];
+  if (!nodeId) throw new Error(`Failed to push backendNodeId=${backendNodeId} to frontend`);
+
+  const resolved = await cdp('DOM.resolveNode', { nodeId });
+  const objectId = resolved?.object?.objectId;
+  if (!objectId) throw new Error('Failed to resolve node to objectId');
+
+  const r = await cdp('Runtime.callFunctionOn', {
+    objectId,
+    functionDeclaration: 'function() { return (this.innerText ?? "").toString(); }',
+    returnByValue: true
+  });
+
+  process.stdout.write(String(r?.result?.value ?? ''));
+  process.exit(0);
+}
+
+const selector = args[0] ?? null;
 
 const expr = selector
   ? `(() => {

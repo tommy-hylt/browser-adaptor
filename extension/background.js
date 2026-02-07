@@ -221,6 +221,14 @@ async function handleRequest(msg) {
         title: t.title,
         url: t.url
       }));
+    } else if (type === 'tabs_activate') {
+      const tabId = msg.tabId;
+      if (typeof tabId !== 'number') throw new Error('tabs_activate requires tabId (number)');
+      const tab = await chrome.tabs.get(tabId);
+      if (tab?.windowId != null) {
+        try { await chrome.windows.update(tab.windowId, { focused: true }); } catch {}
+      }
+      result = await chrome.tabs.update(tabId, { active: true });
     } else if (type === 'bookmarks_tree') {
       result = await chrome.bookmarks.getTree();
     } else {

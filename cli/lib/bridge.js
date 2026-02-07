@@ -29,6 +29,13 @@ export async function tabsList() {
   return json.tabs;
 }
 
+export async function tabsActivate(tabId) {
+  const res = await http('POST', '/tabs/activate', { tabId });
+  const json = await res.json();
+  if (!json?.ok) throw new Error(json?.error ?? 'tabs activate failed');
+  return json.result;
+}
+
 export async function bookmarksTree() {
   const res = await http('GET', '/bookmarks');
   const json = await res.json();
