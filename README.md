@@ -1,18 +1,18 @@
-# BrowserAdaptor (v2)
+# BrowserAdaptor
 
-This folder now contains two things:
+A thin bridge that lets CLI scripts drive an existing Chrome session.
 
-- `browser-mcp/` – the **old** BrowserMCP supervisor/client experiments (moved deeper).
-- `browser-adaptor/` – the **new** design with 3 sides:
-  - `server/` – local HTTP+WS bridge
-  - `cli/` – tiny CLI that calls the server
-  - `extension/` – MV3 Chrome extension that attaches `chrome.debugger` and forwards **raw CDP** over WS
+## Layout
 
-## Step 1 scope (relay mode)
-Implemented: **url**, **navigate**, **click**, **screenshot** as CLI scripts that use **raw CDP**.
+- `server/` – local HTTP+WS bridge
+- `cli/` – CLI entrypoint + scripts
+- `extension/` – MV3 Chrome extension that relays `chrome.debugger` CDP + a few privileged Chrome APIs (tabs, bookmarks)
+
+## Scope (relay mode)
+CLI scripts implement: **url**, **navigate**, **new tab**, **click**, **mouse**, **keys**, **text/html**, **AXTree**, **screenshot**, plus **tabs/bookmarks** via thin extension relays.
 
 ### Transport clarity (relay mode)
-- **CLI → Server:** HTTP (single endpoint: `/cdp`)
+- **CLI → Server:** HTTP (`/cdp`, plus a few thin endpoints like `/tabs`, `/bookmarks`)
 - **Extension → Server:** WebSocket
 - **Server → Extension:** WebSocket (same connection)
 
@@ -47,22 +47,28 @@ The extension will connect to the server and attach to the **current active tab*
 
 ```bat
 cd /d "C:\Users\User\Desktop\260207 BrowserAdaptor\browser-adaptor\cli"
+
+:: health
 node cli.js health
-node cli.js url
-node cli.js navigate https://google.com
-node cli.js url
 
-node cli.js navigate https://example.com
+:: CDP-driven scripts
+node scripts\url.js
+node scripts\navigate.js https://example.com
+node scripts\new-tab.js https://github.com/
+node scripts\click.js --selector "a"
+node scripts\screenshot.js out.png
 
-node cli.js click 200 200
-node cli.js click --selector "a"
+:: page content
+node scripts\text.js
+node scripts\html.js
+node scripts\ax-tree.js
 
-node cli.js screenshot out.png
-
-:: raw CDP
-node cli.js cdp Page.captureScreenshot "{\"format\":\"png\"}"
+:: non-CDP relays
+node scripts\tabs-list.js
+node scripts\bookmarks.js
+node scripts\bookmarks.js --all
 ```
 
 Notes:
-- `click x y` is viewport coordinates (CSS pixels).
-- This is intentionally minimal; element refs, snapshots, and robust waits come next.
+- `click.js <x> <y>` uses viewport coordinates (CSS pixels).
+- See `cli/README.md` and `cli/scripts/README.md` for full usage.
