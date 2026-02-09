@@ -15,6 +15,10 @@ Examples:
 
 ```bat
 cd /d "C:\Users\User\Desktop\260207 BrowserAdaptor\browser-adaptor\cli"
+
+:: REQUIRED first
+node cli.js prepare
+
 node scripts\url.js
 node scripts\navigate.js https://example.com
 node scripts\click.js --selector "a"
@@ -30,6 +34,14 @@ Note:
 ## Troubleshoot
 
 ### Symptom: `connected:false` or “No extension connected (WebSocket not open)”
+
+First, run:
+
+```bat
+node cli.js prepare
+```
+
+`prepare` will attempt to wake Chrome/extension and re-check `/health` (up to 3 tries).
 
 This means the MV3 service worker is asleep or hasn’t been woken by a Chrome event yet.
 

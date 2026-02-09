@@ -21,6 +21,10 @@ async function main() {
   const [cmd, ...args] = process.argv.slice(2);
 
   switch (cmd) {
+    case 'prepare': {
+      await import('./prepare.js');
+      return;
+    }
     case 'health': {
       const res = await j('GET', '/health');
       console.log(await res.text());
@@ -56,6 +60,7 @@ async function main() {
     }
     default: {
       console.error('Commands:');
+      console.error('  prepare');
       console.error('  health');
       console.error('  url');
       console.error('  navigate <url>');
