@@ -10,6 +10,7 @@
 // - Give up after 3 tries.
 
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 
 const BASE = process.env.BROWSER_ADAPTOR_URL ?? 'http://127.0.0.1:8789';
@@ -30,8 +31,11 @@ async function health() {
   return json;
 }
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 function startChrome(url = 'https://example.com') {
-  const extDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'extension');
+  const extDir = path.resolve(__dirname, '..', 'extension');
   const cmdPath = path.join(extDir, 'start-chrome.cmd');
 
   // Use cmd.exe to execute .cmd reliably.
