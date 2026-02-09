@@ -1,12 +1,16 @@
 #!/usr/bin/env node
-import { cdp } from '../lib/bridge.js';
+import { tabsActivate } from '../lib/bridge.js';
 
-// Usage: tab_activate.js <targetId>
-const targetId = process.argv[2];
-if (!targetId) {
-  console.error('Usage: tab_activate.js <targetId>');
+// Usage:
+//   tab-activate.js <tabId>
+//
+// Activates a Chrome tab using the extension API relay (NOT CDP).
+
+const tabId = Number(process.argv[2]);
+if (!Number.isFinite(tabId)) {
+  console.error('Usage: tab-activate.js <tabId>');
   process.exit(1);
 }
 
-const r = await cdp('Target.activateTarget', { targetId });
-console.log(JSON.stringify(r, null, 2));
+const r = await tabsActivate(tabId);
+console.log(JSON.stringify(r ?? { ok: true, tabId }, null, 2));

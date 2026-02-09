@@ -41,6 +41,9 @@ Each capability is a small Node script.
 
 ### Keyboard
 
+- `type.js "text"`
+  - insert text via CDP `Input.insertText` (preferred over DOM value assignment)
+
 - `key-down.js <key>`
 - `key-up.js <key>`
 - `key-press.js <key>`
@@ -72,6 +75,8 @@ Each capability is a small Node script.
 
 - `eval.js "<js>"`
 - `eval.js --file path.js`
+
+Warning: `eval.js` should only be used when the other scripts can’t do the job. Prefer `click.js` + `type.js` + `key-press.js` for UI interactions.
 
 ### Bookmarks
 

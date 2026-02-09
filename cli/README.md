@@ -18,8 +18,14 @@ cd /d "C:\Users\User\Desktop\260207 BrowserAdaptor\browser-adaptor\cli"
 node scripts\url.js
 node scripts\navigate.js https://example.com
 node scripts\click.js --selector "a"
+node scripts\type.js "hello"
+node scripts\key-press.js Enter
 node scripts\screenshot.js out.png
 ```
+
+Note:
+- Prefer the dedicated scripts (`click.js`, `type.js`, `key-press.js`, etc.) for interactions.
+- Treat `eval.js` as a last resort (debug/probing) when other scripts cannot achieve the goal.
 
 ## Troubleshoot
 
