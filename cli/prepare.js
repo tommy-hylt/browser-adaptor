@@ -4,12 +4,10 @@
 //
 // Behavior:
 // - Call GET /health
+//   - if {ok:false} or request fails -> hard fail
 //   - if {connected:true} -> fast success
-//   - else (connected:false or server not reachable) -> run extension/start-chrome.cmd, wait 3s, retry
+//   - else (connected:false) -> run extension/start-chrome.cmd, wait 3s, retry
 // - Give up after 3 tries.
-//
-// Important: prepare should NEVER fail (exit code 0). If we can't connect, we still exit 0 and
-// print a JSON payload describing the abnormal state.
 
 import path from 'path';
 import { spawnSync } from 'child_process';
@@ -23,20 +21,13 @@ function sleep(ms) {
 }
 
 async function health() {
-  try {
-    const res = await fetch(`${BASE}/health`, { method: 'GET' });
+  const res = await fetch(`${BASE}/health`, { method: 'GET' });
+  if (!res.ok) {
     const text = await res.text().catch(() => '');
-    if (!res.ok) {
-      return { ok: false, status: res.status, text };
-    }
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { ok: false, status: res.status, text };
-    }
-  } catch (e) {
-    return { ok: false, error: String(e?.message ?? e) };
+    throw new Error(`GET /health -> ${res.status}: ${text}`);
   }
+  const json = await res.json();
+  return json;
 }
 
 function startChrome(url = 'https://example.com') {
@@ -59,26 +50,33 @@ async function main() {
   for (let i = 1; i <= TRIES; i++) {
     const h = await health();
 
-    if (h?.ok === true && h.connected === true) {
-      console.log(JSON.stringify({ ok: true, connected: true, tries: i }, null, 2));
-      process.exit(0);
+    if (!h || h.ok !== true) {
+      // server responded but not ok => failure
+      console.error(JSON.stringify({ ok: false, step: 'health', health: h }, null, 2));
+      process.exit(2);
     }
 
-    if (i !== TRIES) {
-      const sc = startChrome('https://example.com');
-      await sleep(SLEEP_MS);
-      void sc;
+    if (h.connected === true) {
+      console.log(JSON.stringify({ ok: true, connected: true, tries: i }, null, 2));
+      return;
     }
+
+    if (i === TRIES) break;
+
+    const sc = startChrome('https://example.com');
+    // best-effort; even if start-chrome fails, we'll still re-check /health once.
+    await sleep(SLEEP_MS);
+
+    // eslint-disable-next-line no-unused-vars
+    void sc;
   }
 
-  const final = await health();
-  // Never fail: return ok:true but connected:false so callers can decide what to do.
-  console.log(JSON.stringify({ ok: true, connected: false, abnormal: true, tries: TRIES, health: final }, null, 2));
-  process.exit(0);
+  const final = await health().catch((e) => ({ ok: false, error: String(e?.message ?? e) }));
+  console.error(JSON.stringify({ ok: false, error: 'NOT_CONNECTED', tries: TRIES, health: final }, null, 2));
+  process.exit(3);
 }
 
 main().catch((e) => {
-  // Never fail.
-  console.log(JSON.stringify({ ok: true, connected: false, abnormal: true, error: String(e?.message ?? e) }, null, 2));
-  process.exit(0);
+  console.error(JSON.stringify({ ok: false, error: String(e?.message ?? e) }, null, 2));
+  process.exit(1);
 });
