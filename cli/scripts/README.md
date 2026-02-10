@@ -80,10 +80,6 @@ Each capability is a small Node script.
   - calls `/health`; if `connected:false`, runs `..\..\extension\start-chrome.cmd` and re-checks
   - gives up after 3 tries
 
-- `eval.js` (REMOVED)
-  - intentionally not shipped to discourage DOM-eval fallbacks
-  - use `click.js`, `type.js`, `key-press.js`, etc. instead
-
 ### Bookmarks
 
 - `bookmarks.js`
