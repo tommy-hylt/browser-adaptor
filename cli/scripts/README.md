@@ -73,10 +73,9 @@ Each capability is a small Node script.
 
 ### Utilities
 
-- `eval.js "<js>"`
-- `eval.js --file path.js`
-
-Warning: `eval.js` should only be used when the other scripts can’t do the job. Prefer `click.js` + `type.js` + `key-press.js` for UI interactions.
+- `eval.js` (REMOVED)
+  - intentionally not shipped to discourage DOM-eval fallbacks
+  - use `click.js`, `type.js`, `key-press.js`, etc. instead
 
 ### Bookmarks
 

@@ -29,7 +29,7 @@ node scripts\screenshot.js out.png
 
 Note:
 - Prefer the dedicated scripts (`click.js`, `type.js`, `key-press.js`, etc.) for interactions.
-- Treat `eval.js` as a last resort (debug/probing) when other scripts cannot achieve the goal.
+- (Removed) `eval.js` is intentionally not provided. Prefer `click.js` + `type.js` + `key-press.js` for UI interactions.
 
 ## Troubleshoot
 
