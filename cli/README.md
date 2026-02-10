@@ -17,7 +17,7 @@ Examples:
 cd /d "C:\Users\User\Desktop\260207 BrowserAdaptor\browser-adaptor\cli"
 
 :: REQUIRED first
-node cli.js prepare
+node scripts\prepare.js
 
 node scripts\url.js
 node scripts\navigate.js https://example.com
@@ -38,7 +38,7 @@ Note:
 First, run:
 
 ```bat
-node cli.js prepare
+node scripts\prepare.js
 ```
 
 `prepare` will attempt to wake Chrome/extension and re-check `/health` (up to 3 tries).

@@ -48,8 +48,11 @@ The extension will connect to the server and attach to the **current active tab*
 ```bat
 cd /d "C:\Users\User\Desktop\260207 BrowserAdaptor\browser-adaptor\cli"
 
+:: REQUIRED first
+node scripts\prepare.js
+
 :: health
-node cli.js health
+node scripts\health.js
 
 :: CDP-driven scripts
 node scripts\url.js

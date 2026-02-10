@@ -2,8 +2,5 @@
   "name": "browser-adaptor-cli",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
-  "bin": {
-    "browser-adaptor": "./cli.js"
-  }
+  "version": "0.0.1"
 }

@@ -35,7 +35,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function startChrome(url = 'https://example.com') {
-  const extDir = path.resolve(__dirname, '..', 'extension');
+  const extDir = path.resolve(__dirname, '..', '..', 'extension');
   const cmdPath = path.join(extDir, 'start-chrome.cmd');
 
   // Use cmd.exe to execute .cmd reliably.
