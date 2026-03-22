@@ -21,6 +21,12 @@ In relay mode:
 - **Extension** is just a bridge (chrome.debugger attach + sendCommand).
 - **All functionality lives in `cli/scripts/*.js`.**
 
+## Docs
+
+- `docs/architecture.md`
+- `docs/runbook.md`
+- `docs/failure-modes.md`
+
 ## Run
 
 ### 1) Start server
