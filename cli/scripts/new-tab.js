@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { cdp } from '../lib/bridge.js';
+import { extractClientTabId, cdpTargetOptions } from '../lib/cli-args.js';
 
 // Usage: new_tab.js <url>
-const url = process.argv[2];
+const parsed = extractClientTabId(process.argv.slice(2));
+const url = parsed.args[0];
 if (!url) {
   console.error('Usage: new_tab.js <url>');
   process.exit(1);
@@ -15,6 +17,6 @@ await cdp('Runtime.evaluate', {
   returnByValue: false,
   awaitPromise: false,
   userGesture: true
-});
+}, cdpTargetOptions(parsed.clientTabId));
 
 console.log('OK');

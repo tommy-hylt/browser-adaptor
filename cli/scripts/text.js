@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { cdp } from '../lib/bridge.js';
+import { extractClientTabId, cdpTargetOptions } from '../lib/cli-args.js';
 
 // Usage:
 //   text.js
 //   text.js <selector>
 //   text.js --backendNodeId <id>
 
-const args = process.argv.slice(2);
+const parsed = extractClientTabId(process.argv.slice(2));
+const args = parsed.args;
+const options = cdpTargetOptions(parsed.clientTabId);
 
 if (args[0] === '--backendNodeId') {
   const backendNodeId = Number(args[1]);
@@ -15,11 +18,11 @@ if (args[0] === '--backendNodeId') {
     process.exit(1);
   }
 
-  const pushed = await cdp('DOM.pushNodesByBackendIdsToFrontend', { backendNodeIds: [backendNodeId] });
+  const pushed = await cdp('DOM.pushNodesByBackendIdsToFrontend', { backendNodeIds: [backendNodeId] }, options);
   const nodeId = pushed?.nodeIds?.[0];
   if (!nodeId) throw new Error(`Failed to push backendNodeId=${backendNodeId} to frontend`);
 
-  const resolved = await cdp('DOM.resolveNode', { nodeId });
+  const resolved = await cdp('DOM.resolveNode', { nodeId }, options);
   const objectId = resolved?.object?.objectId;
   if (!objectId) throw new Error('Failed to resolve node to objectId');
 
@@ -27,7 +30,7 @@ if (args[0] === '--backendNodeId') {
     objectId,
     functionDeclaration: 'function() { return (this.innerText ?? "").toString(); }',
     returnByValue: true
-  });
+  }, options);
 
   process.stdout.write(String(r?.result?.value ?? ''));
 } else {
@@ -45,7 +48,7 @@ if (args[0] === '--backendNodeId') {
     expression: expr,
     returnByValue: true,
     awaitPromise: false
-  });
+  }, options);
 
   const v = r?.result?.value;
   if (v == null) {

@@ -93,5 +93,6 @@ Each capability is a small Node script.
 
 ## Tab targeting
 
+- Most scripts accept `--clientTabId <clientTabId>` (or `--clientTabId=<clientTabId>`).
 - Set `BROWSER_ADAPTOR_CLIENT_TAB_ID=<clientTabId>` to target CDP calls to a specific tab.
 - If unset, calls fallback to the active http(s) tab.

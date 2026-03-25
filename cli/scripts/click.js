@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { cdp } from '../lib/bridge.js';
+import { extractClientTabId, cdpTargetOptions } from '../lib/cli-args.js';
 
 // Usage:
 //   click.js <x> <y>
@@ -12,15 +13,17 @@ function buttonToCdp(button) {
   return 'left';
 }
 
-async function clickAt(x, y) {
+async function clickAt(x, y, options) {
   const button = buttonToCdp('left');
-  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button, clickCount: 1 });
-  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, clickCount: 1 });
-  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button, clickCount: 1 }, options);
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, clickCount: 1 }, options);
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 }, options);
   console.log(JSON.stringify({ ok: true, x, y }, null, 2));
 }
 
-const args = process.argv.slice(2);
+const parsed = extractClientTabId(process.argv.slice(2));
+const args = parsed.args;
+const options = cdpTargetOptions(parsed.clientTabId);
 
 if (args[0] === '--selector') {
   const selector = args[1];
@@ -41,14 +44,14 @@ if (args[0] === '--selector') {
     expression: expr,
     returnByValue: true,
     awaitPromise: false
-  });
+  }, options);
 
   const pt = r?.result?.value;
   if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') {
     throw new Error(`Selector not found or not measurable: ${selector}`);
   }
 
-  await clickAt(pt.x, pt.y);
+  await clickAt(pt.x, pt.y, options);
 } else if (args[0] === '--backendNodeId') {
   const backendNodeId = Number(args[1]);
   if (!Number.isFinite(backendNodeId)) {
@@ -56,11 +59,11 @@ if (args[0] === '--selector') {
     process.exit(1);
   }
 
-  const pushed = await cdp('DOM.pushNodesByBackendIdsToFrontend', { backendNodeIds: [backendNodeId] });
+  const pushed = await cdp('DOM.pushNodesByBackendIdsToFrontend', { backendNodeIds: [backendNodeId] }, options);
   const nodeId = pushed?.nodeIds?.[0];
   if (!nodeId) throw new Error(`Failed to push backendNodeId=${backendNodeId} to frontend`);
 
-  const box = await cdp('DOM.getBoxModel', { nodeId });
+  const box = await cdp('DOM.getBoxModel', { nodeId }, options);
   const quad = box?.model?.content;
   if (!Array.isArray(quad) || quad.length < 8) throw new Error('No box model quad');
 
@@ -70,7 +73,7 @@ if (args[0] === '--selector') {
   const x = (Math.min(...xs) + Math.max(...xs)) / 2;
   const y = (Math.min(...ys) + Math.max(...ys)) / 2;
 
-  await clickAt(x, y);
+  await clickAt(x, y, options);
 } else {
   // coordinate mode
   const x = Number(args[0]);
@@ -80,5 +83,5 @@ if (args[0] === '--selector') {
     process.exit(1);
   }
 
-  await clickAt(x, y);
+  await clickAt(x, y, options);
 }

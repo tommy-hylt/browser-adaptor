@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { cdp } from '../lib/bridge.js';
+import { extractClientTabId, cdpTargetOptions } from '../lib/cli-args.js';
 
 // Usage:
 //   type.js "text to insert"
@@ -7,11 +8,12 @@ import { cdp } from '../lib/bridge.js';
 // Inserts text using CDP Input.insertText.
 // Note: this does NOT focus an element; pair with click.js --selector "..." first.
 
-const text = process.argv.slice(2).join(' ');
+const parsed = extractClientTabId(process.argv.slice(2));
+const text = parsed.args.join(' ');
 if (!text) {
   console.error('Usage: type.js "text to insert"');
   process.exit(1);
 }
 
-await cdp('Input.insertText', { text });
+await cdp('Input.insertText', { text }, cdpTargetOptions(parsed.clientTabId));
 console.log(JSON.stringify({ ok: true, textLength: text.length }, null, 2));

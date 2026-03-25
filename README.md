@@ -85,5 +85,5 @@ node scripts\bookmarks.js --all
 Notes:
 
 - `click.js <x> <y>` uses viewport coordinates (CSS pixels).
-- For CDP actions, optionally set `BROWSER_ADAPTOR_CLIENT_TAB_ID=<clientTabId>` to target a specific tab.
+- For CDP actions, pass `--clientTabId <clientTabId>` to scripts or set `BROWSER_ADAPTOR_CLIENT_TAB_ID=<clientTabId>`.
 - See `cli/README.md` and `cli/scripts/README.md` for full usage.

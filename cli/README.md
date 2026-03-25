@@ -11,7 +11,7 @@ CLI entrypoint and helper library.
 
 All scripts use `BROWSER_ADAPTOR_URL` (default `http://127.0.0.1:8789`).
 
-For CDP calls, set `BROWSER_ADAPTOR_CLIENT_TAB_ID=<clientTabId>` to target a specific tab.  
+For CDP calls, pass `--clientTabId <clientTabId>` to scripts or set `BROWSER_ADAPTOR_CLIENT_TAB_ID=<clientTabId>` globally.  
 If omitted, the extension falls back to the active http(s) tab.
 
 Examples:
