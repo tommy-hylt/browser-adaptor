@@ -49,10 +49,7 @@ if (args[0] === '--selector') {
   }
 
   await clickAt(pt.x, pt.y);
-  process.exit(0);
-}
-
-if (args[0] === '--backendNodeId') {
+} else if (args[0] === '--backendNodeId') {
   const backendNodeId = Number(args[1]);
   if (!Number.isFinite(backendNodeId)) {
     console.error('Usage: click.js --backendNodeId <id>');
@@ -74,15 +71,14 @@ if (args[0] === '--backendNodeId') {
   const y = (Math.min(...ys) + Math.max(...ys)) / 2;
 
   await clickAt(x, y);
-  process.exit(0);
-}
+} else {
+  // coordinate mode
+  const x = Number(args[0]);
+  const y = Number(args[1]);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    console.error('Usage: click.js <x> <y>');
+    process.exit(1);
+  }
 
-// coordinate mode
-const x = Number(args[0]);
-const y = Number(args[1]);
-if (!Number.isFinite(x) || !Number.isFinite(y)) {
-  console.error('Usage: click.js <x> <y>');
-  process.exit(1);
+  await clickAt(x, y);
 }
-
-await clickAt(x, y);

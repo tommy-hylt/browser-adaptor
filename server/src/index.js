@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 
 const HOST = process.env.HOST ?? '127.0.0.1';
 const PORT = Number(process.env.PORT ?? 8789);
+const DEFAULT_RELAY_TIMEOUT_MS = Number(process.env.BROWSER_ADAPTOR_RELAY_TIMEOUT_MS ?? 30_000);
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -19,7 +20,7 @@ function wsSend(msg) {
   wsClient.send(JSON.stringify(msg));
 }
 
-function callExt(payload, { timeoutMs = 10_000 } = {}) {
+function callExt(payload, { timeoutMs = DEFAULT_RELAY_TIMEOUT_MS } = {}) {
   const id = String(nextId++);
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -31,6 +32,13 @@ function callExt(payload, { timeoutMs = 10_000 } = {}) {
   });
 }
 
+function parseTimeoutMs(value) {
+  if (value == null) return DEFAULT_RELAY_TIMEOUT_MS;
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) return null;
+  return Math.floor(n);
+}
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, connected: !!wsClient });
 });
@@ -38,11 +46,15 @@ app.get('/health', (req, res) => {
 // Raw CDP pass-through
 app.post('/cdp', async (req, res) => {
   try {
-    const { method, params } = req.body ?? {};
+    const { method, params, timeoutMs } = req.body ?? {};
     if (!method || typeof method !== 'string') {
       return res.status(400).json({ ok: false, error: 'Missing method (string).' });
     }
-    const result = await callExt({ type: 'cdp', method, params: params ?? {} });
+    const relayTimeoutMs = parseTimeoutMs(timeoutMs);
+    if (relayTimeoutMs == null) {
+      return res.status(400).json({ ok: false, error: 'timeoutMs must be a positive number when provided.' });
+    }
+    const result = await callExt({ type: 'cdp', method, params: params ?? {} }, { timeoutMs: relayTimeoutMs });
     res.json({ ok: true, result });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message ?? e) });
@@ -52,7 +64,11 @@ app.post('/cdp', async (req, res) => {
 // Non-CDP extension relay endpoints (still “thin”):
 app.get('/tabs', async (req, res) => {
   try {
-    const result = await callExt({ type: 'tabs_list' });
+    const relayTimeoutMs = parseTimeoutMs(req.query?.timeoutMs);
+    if (relayTimeoutMs == null) {
+      return res.status(400).json({ ok: false, error: 'timeoutMs must be a positive number when provided.' });
+    }
+    const result = await callExt({ type: 'tabs_list' }, { timeoutMs: relayTimeoutMs });
     res.json({ ok: true, tabs: result });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message ?? e) });
@@ -61,11 +77,15 @@ app.get('/tabs', async (req, res) => {
 
 app.post('/tabs/activate', async (req, res) => {
   try {
-    const { tabId } = req.body ?? {};
+    const { tabId, timeoutMs } = req.body ?? {};
     if (typeof tabId !== 'number') {
       return res.status(400).json({ ok: false, error: 'Missing tabId (number)' });
     }
-    const result = await callExt({ type: 'tabs_activate', tabId });
+    const relayTimeoutMs = parseTimeoutMs(timeoutMs);
+    if (relayTimeoutMs == null) {
+      return res.status(400).json({ ok: false, error: 'timeoutMs must be a positive number when provided.' });
+    }
+    const result = await callExt({ type: 'tabs_activate', tabId }, { timeoutMs: relayTimeoutMs });
     res.json({ ok: true, result });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message ?? e) });
@@ -74,7 +94,11 @@ app.post('/tabs/activate', async (req, res) => {
 
 app.get('/bookmarks', async (req, res) => {
   try {
-    const result = await callExt({ type: 'bookmarks_tree' });
+    const relayTimeoutMs = parseTimeoutMs(req.query?.timeoutMs);
+    if (relayTimeoutMs == null) {
+      return res.status(400).json({ ok: false, error: 'timeoutMs must be a positive number when provided.' });
+    }
+    const result = await callExt({ type: 'bookmarks_tree' }, { timeoutMs: relayTimeoutMs });
     res.json({ ok: true, bookmarks: result });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message ?? e) });

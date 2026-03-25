@@ -22,14 +22,13 @@ if (args[0] === '--url') {
 
   await tabsActivate(found.id);
   console.log('OK');
-  process.exit(0);
-}
+} else {
+  const tabId = Number(args[0]);
+  if (!Number.isFinite(tabId)) {
+    console.error('Usage: tab-switch.js <tabId>');
+    process.exit(1);
+  }
 
-const tabId = Number(args[0]);
-if (!Number.isFinite(tabId)) {
-  console.error('Usage: tab-switch.js <tabId>');
-  process.exit(1);
+  await tabsActivate(tabId);
+  console.log('OK');
 }
-
-await tabsActivate(tabId);
-console.log('OK');
