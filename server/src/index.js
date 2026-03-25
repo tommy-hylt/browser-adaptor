@@ -46,15 +46,20 @@ app.get('/health', (req, res) => {
 // Raw CDP pass-through
 app.post('/cdp', async (req, res) => {
   try {
-    const { method, params, timeoutMs } = req.body ?? {};
+    const { method, params, timeoutMs, clientTabId } = req.body ?? {};
     if (!method || typeof method !== 'string') {
       return res.status(400).json({ ok: false, error: 'Missing method (string).' });
+    }
+    if (clientTabId != null && typeof clientTabId !== 'string') {
+      return res.status(400).json({ ok: false, error: 'clientTabId must be a string when provided.' });
     }
     const relayTimeoutMs = parseTimeoutMs(timeoutMs);
     if (relayTimeoutMs == null) {
       return res.status(400).json({ ok: false, error: 'timeoutMs must be a positive number when provided.' });
     }
-    const result = await callExt({ type: 'cdp', method, params: params ?? {} }, { timeoutMs: relayTimeoutMs });
+    const payload = { type: 'cdp', method, params: params ?? {} };
+    if (clientTabId) payload.clientTabId = clientTabId;
+    const result = await callExt(payload, { timeoutMs: relayTimeoutMs });
     res.json({ ok: true, result });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message ?? e) });
@@ -70,6 +75,19 @@ app.get('/tabs', async (req, res) => {
     }
     const result = await callExt({ type: 'tabs_list' }, { timeoutMs: relayTimeoutMs });
     res.json({ ok: true, tabs: result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e?.message ?? e) });
+  }
+});
+
+app.get('/tabs/active', async (req, res) => {
+  try {
+    const relayTimeoutMs = parseTimeoutMs(req.query?.timeoutMs);
+    if (relayTimeoutMs == null) {
+      return res.status(400).json({ ok: false, error: 'timeoutMs must be a positive number when provided.' });
+    }
+    const result = await callExt({ type: 'tabs_active' }, { timeoutMs: relayTimeoutMs });
+    res.json({ ok: true, tab: result });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message ?? e) });
   }

@@ -3,6 +3,7 @@ import fs from 'fs';
 export const BASE = process.env.BROWSER_ADAPTOR_URL ?? 'http://127.0.0.1:8789';
 const DEFAULT_TIMEOUT_MS = Number(process.env.BROWSER_ADAPTOR_TIMEOUT_MS ?? 30_000);
 const DEFAULT_SCRIPT_TIMEOUT_MS = Number(process.env.BROWSER_ADAPTOR_SCRIPT_TIMEOUT_MS ?? 600_000);
+const DEFAULT_CLIENT_TAB_ID = (process.env.BROWSER_ADAPTOR_CLIENT_TAB_ID ?? '').trim() || undefined;
 
 export async function http(method, path, body, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const controller = new AbortController();
@@ -41,7 +42,10 @@ function cdpDefaultTimeout(method, params) {
 
 export async function cdp(method, params = {}, options = {}) {
   const timeoutMs = options.timeoutMs ?? cdpDefaultTimeout(method, params);
-  const res = await http('POST', '/cdp', { method, params, timeoutMs }, { timeoutMs });
+  const clientTabId = options.clientTabId ?? DEFAULT_CLIENT_TAB_ID;
+  const body = { method, params, timeoutMs };
+  if (clientTabId) body.clientTabId = clientTabId;
+  const res = await http('POST', '/cdp', body, { timeoutMs });
   const json = await res.json();
   if (!json?.ok) throw new Error(json?.error ?? 'CDP call failed');
   return json.result;
@@ -53,6 +57,14 @@ export async function tabsList(options = {}) {
   const json = await res.json();
   if (!json?.ok) throw new Error(json?.error ?? 'tabs list failed');
   return json.tabs;
+}
+
+export async function tabsActive(options = {}) {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const res = await http('GET', `/tabs/active?timeoutMs=${encodeURIComponent(timeoutMs)}`, undefined, { timeoutMs });
+  const json = await res.json();
+  if (!json?.ok) throw new Error(json?.error ?? 'tabs active failed');
+  return json.tab;
 }
 
 export async function tabsActivate(tabId, options = {}) {

@@ -2,12 +2,137 @@ let WS_URL = 'ws://127.0.0.1:8789/ws';
 
 let ws = null;
 let attachedTabId = null;
+const TAB_MAP_KEY = 'tabIdToClientTabIdV1';
+const tabIdToClientTabId = new Map();
+const clientTabIdToTabId = new Map();
+let tabMapReadyPromise = null;
 
 function log(...args) {
   console.log('[browser-adaptor]', ...args);
 }
 
+function uuidV7() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+
+  let ts = Date.now();
+  for (let i = 5; i >= 0; i--) {
+    bytes[i] = ts & 0xff;
+    ts = Math.floor(ts / 256);
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x70;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+}
+
+function getStorageArea() {
+  return chrome.storage?.session ?? chrome.storage?.local ?? null;
+}
+
+async function persistTabMap() {
+  const area = getStorageArea();
+  if (!area) return;
+  const obj = {};
+  for (const [tabId, clientTabId] of tabIdToClientTabId.entries()) {
+    obj[String(tabId)] = clientTabId;
+  }
+  await area.set({ [TAB_MAP_KEY]: obj });
+}
+
+function removeMappingByTabId(tabId) {
+  const clientTabId = tabIdToClientTabId.get(tabId);
+  if (!clientTabId) return false;
+  tabIdToClientTabId.delete(tabId);
+  clientTabIdToTabId.delete(clientTabId);
+  return true;
+}
+
+function setMapping(tabId, clientTabId) {
+  const prevTabId = clientTabIdToTabId.get(clientTabId);
+  if (prevTabId != null && prevTabId !== tabId) {
+    tabIdToClientTabId.delete(prevTabId);
+  }
+  const prevClientTabId = tabIdToClientTabId.get(tabId);
+  if (prevClientTabId && prevClientTabId !== clientTabId) {
+    clientTabIdToTabId.delete(prevClientTabId);
+  }
+  tabIdToClientTabId.set(tabId, clientTabId);
+  clientTabIdToTabId.set(clientTabId, tabId);
+}
+
+function ensureMappingForTabIdSync(tabId) {
+  const existing = tabIdToClientTabId.get(tabId);
+  if (existing) return existing;
+  let clientTabId;
+  do {
+    clientTabId = uuidV7();
+  } while (clientTabIdToTabId.has(clientTabId));
+  setMapping(tabId, clientTabId);
+  return clientTabId;
+}
+
+async function ensureTabMapReady() {
+  if (!tabMapReadyPromise) {
+    tabMapReadyPromise = (async () => {
+      const area = getStorageArea();
+      const loaded = area ? await area.get(TAB_MAP_KEY) : {};
+      const raw = loaded?.[TAB_MAP_KEY] ?? {};
+      const tabs = await chrome.tabs.query({});
+      const liveTabIds = new Set(tabs.map((t) => t.id).filter((id) => typeof id === 'number'));
+
+      for (const [tabIdRaw, clientTabId] of Object.entries(raw)) {
+        const tabId = Number(tabIdRaw);
+        if (!Number.isFinite(tabId)) continue;
+        if (!liveTabIds.has(tabId)) continue;
+        if (typeof clientTabId !== 'string' || !clientTabId) continue;
+        setMapping(tabId, clientTabId);
+      }
+
+      let changed = false;
+      for (const tabId of liveTabIds) {
+        if (!tabIdToClientTabId.has(tabId)) {
+          ensureMappingForTabIdSync(tabId);
+          changed = true;
+        }
+      }
+      if (changed || Object.keys(raw).length !== tabIdToClientTabId.size) {
+        await persistTabMap();
+      }
+    })().catch((e) => {
+      log('failed to hydrate tab map', String(e?.message ?? e));
+      tabMapReadyPromise = null;
+    });
+  }
+  await tabMapReadyPromise;
+}
+
+async function ensureMappingForTabId(tabId) {
+  await ensureTabMapReady();
+  const clientTabId = ensureMappingForTabIdSync(tabId);
+  await persistTabMap();
+  return clientTabId;
+}
+
+async function resolveTabIdFromClientTabId(clientTabId) {
+  await ensureTabMapReady();
+  const tabId = clientTabIdToTabId.get(clientTabId);
+  if (tabId == null) return null;
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab?.id) return null;
+    return tab.id;
+  } catch {
+    removeMappingByTabId(tabId);
+    await persistTabMap();
+    return null;
+  }
+}
+
 async function getBestTabId() {
+  await ensureTabMapReady();
   const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
   if (!tabs || tabs.length === 0) throw new Error('No tabs');
 
@@ -23,8 +148,15 @@ async function getBestTabId() {
   throw new Error('No suitable http(s) tab found');
 }
 
-async function ensureAttached() {
-  const tabId = await getBestTabId();
+async function ensureAttached(target) {
+  let tabId;
+  if (target?.clientTabId) {
+    tabId = await resolveTabIdFromClientTabId(target.clientTabId);
+    if (tabId == null) throw new Error(`Unknown clientTabId: ${target.clientTabId}`);
+  } else {
+    tabId = await getBestTabId();
+  }
+
   if (attachedTabId === tabId) return;
 
   // Detach previous if any
@@ -40,8 +172,8 @@ async function ensureAttached() {
   try { await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable', {}); } catch {}
 }
 
-async function cdp(method, params = {}) {
-  await ensureAttached();
+async function cdp(method, params = {}, target) {
+  await ensureAttached(target);
   return chrome.debugger.sendCommand({ tabId: attachedTabId }, method, params);
 }
 
@@ -211,16 +343,31 @@ async function handleRequest(msg) {
   try {
     let result;
     if (type === 'cdp') {
-      result = await cdp(msg.method, msg.params ?? {});
+      result = await cdp(msg.method, msg.params ?? {}, { clientTabId: msg.clientTabId ?? null });
     } else if (type === 'tabs_list') {
+      await ensureTabMapReady();
       const tabs = await chrome.tabs.query({});
       result = tabs.map((t) => ({
         id: t.id,
+        clientTabId: typeof t.id === 'number' ? ensureMappingForTabIdSync(t.id) : null,
         windowId: t.windowId,
         active: t.active,
         title: t.title,
         url: t.url
       }));
+      await persistTabMap();
+    } else if (type === 'tabs_active') {
+      await ensureTabMapReady();
+      const tabId = await getBestTabId();
+      const tab = await chrome.tabs.get(tabId);
+      result = {
+        id: tab.id,
+        clientTabId: await ensureMappingForTabId(tabId),
+        windowId: tab.windowId,
+        active: tab.active,
+        title: tab.title,
+        url: tab.url
+      };
     } else if (type === 'tabs_activate') {
       const tabId = msg.tabId;
       if (typeof tabId !== 'number') throw new Error('tabs_activate requires tabId (number)');
@@ -228,7 +375,15 @@ async function handleRequest(msg) {
       if (tab?.windowId != null) {
         try { await chrome.windows.update(tab.windowId, { focused: true }); } catch {}
       }
-      result = await chrome.tabs.update(tabId, { active: true });
+      const updated = await chrome.tabs.update(tabId, { active: true });
+      result = {
+        id: updated.id,
+        clientTabId: typeof updated.id === 'number' ? await ensureMappingForTabId(updated.id) : null,
+        windowId: updated.windowId,
+        active: updated.active,
+        title: updated.title,
+        url: updated.url
+      };
     } else if (type === 'bookmarks_tree') {
       result = await chrome.bookmarks.getTree();
     } else {
@@ -271,6 +426,8 @@ function ensureConnected() {
 }
 
 function init() {
+  ensureTabMapReady().catch((e) => log('tab map init failed', String(e?.message ?? e)));
+
   // Attempt immediately when the worker runs.
   ensureConnected();
 
@@ -293,6 +450,32 @@ chrome.action?.onClicked?.addListener(() => init());
 chrome.tabs.onActivated.addListener(() => ensureConnected());
 chrome.tabs.onUpdated.addListener(() => ensureConnected());
 chrome.windows.onFocusChanged.addListener(() => ensureConnected());
+
+chrome.tabs.onCreated.addListener((tab) => {
+  const tabId = tab?.id;
+  if (typeof tabId !== 'number') return;
+  ensureMappingForTabId(tabId).catch((e) => log('onCreated mapping failed', String(e?.message ?? e)));
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (typeof tabId !== 'number') return;
+  if (removeMappingByTabId(tabId)) {
+    persistTabMap().catch((e) => log('onRemoved persist failed', String(e?.message ?? e)));
+  }
+});
+
+chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  ensureTabMapReady().then(async () => {
+    const existing = tabIdToClientTabId.get(removedTabId);
+    if (existing) {
+      removeMappingByTabId(removedTabId);
+      setMapping(addedTabId, existing);
+      await persistTabMap();
+      return;
+    }
+    await ensureMappingForTabId(addedTabId);
+  }).catch((e) => log('onReplaced mapping failed', String(e?.message ?? e)));
+});
 
 // Also run when loaded by any event.
 init();

@@ -18,6 +18,9 @@ Each capability is a small Node script.
 - `tabs-list.js`
   - list tabs (via extension `chrome.tabs.query`)
 
+- `tab-active.js`
+  - show currently active http(s) tab with `clientTabId`
+
 - `tab-switch.js <tabId>`
   - switch active tab by id (via extension `chrome.tabs.update`)
 
@@ -87,3 +90,8 @@ Each capability is a small Node script.
 
 - `bookmarks.js --all`
   - full bookmarks tree
+
+## Tab targeting
+
+- Set `BROWSER_ADAPTOR_CLIENT_TAB_ID=<clientTabId>` to target CDP calls to a specific tab.
+- If unset, calls fallback to the active http(s) tab.

@@ -10,10 +10,12 @@ Local bridge.
 
 ## Endpoints
 
-- `GET /health` → `{ ok, connected }`
-- `POST /cdp` → forwards `{ method, params }` to the extension (`chrome.debugger.sendCommand`)
-- `GET /tabs` → forwarded to extension `chrome.tabs.query` (thin non-CDP relay)
-- `GET /bookmarks` → forwarded to extension `chrome.bookmarks.getTree` (thin non-CDP relay)
+- `GET /health` -> `{ ok, connected }`
+- `POST /cdp` -> forwards `{ method, params, timeoutMs?, clientTabId? }` to extension (`chrome.debugger.sendCommand`)
+- `GET /tabs` -> forwarded to extension `chrome.tabs.query` (includes `clientTabId`)
+- `GET /tabs/active` -> returns active http(s) tab with `clientTabId`
+- `POST /tabs/activate` -> forwarded to extension `chrome.tabs.update` / `chrome.windows.update`
+- `GET /bookmarks` -> forwarded to extension `chrome.bookmarks.getTree`
 
 ## Logs
 
